@@ -155,7 +155,7 @@ vector<Tray> GetStartTrays(vector<Flop>& flops, int num_trays) {
 
 void PrintTrays(vector<Tray> trays) {
 
-		/* -70.0 reverses the original shift we added when reading the input */
+		/* we subtract by 70.0 to remove the initial shift */
 
 		cout << "#trays: " << (int)trays.size() << "\n\n";
 		for (int i = 0; i < (int)trays.size(); i++) {
