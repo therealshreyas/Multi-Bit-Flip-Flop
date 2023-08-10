@@ -8,8 +8,7 @@
 
 ## Usage
 #### ./rng -B $b$ -N $n$ -M $m$ > test.in 
-- Builds a set of $n$ flops (all constrained to the bounding box $[70 ... 70 + b] \times [70 ... 70 + b]$), and $m$ timing-critical paths.   
-	- We add the constant $70$ to our bounding box so that each point can have up to $64$ bits in the 1st quadrant if chosen as an MBFF center. 
+- Builds a set of $n$ flops (all constrained to the bounding box $[0 ... b] \times [0 ... b]$), and $m$ timing-critical paths.   
 - Outputs the input file for the mbff binary to "test.in". 
 
 Sample input file (test.in):

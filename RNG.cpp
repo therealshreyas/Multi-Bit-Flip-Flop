@@ -34,8 +34,8 @@ void generatePoints(int cardinality, int max) {
   int pointY = mt() % (BBOX * 100 + 1);
   //cout << pointX << " " << pointY << "\n";
   pair<float, float> coordinate;
-  coordinate.first = (float)pointX/100.0 + 70;
-  coordinate.second = (float)pointY/100.0 + 70;
+  coordinate.first = (float)pointX/100.0;
+  coordinate.second = (float)pointY/100.0;
   // Checks the see if a pair(coordinate) is in the vector pointsets. If it is,
   // it recurses back to the beginning of the function to generate a new point.
   if (!(find(pointsets.begin(), pointsets.end(), coordinate) !=

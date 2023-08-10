@@ -154,13 +154,16 @@ vector<Tray> GetStartTrays(vector<Flop>& flops, int num_trays) {
 }
 
 void PrintTrays(vector<Tray> trays) {
+
+		/* -70.0 reverses the original shift we added when reading the input */
+
 		cout << "#trays: " << (int)trays.size() << "\n\n";
 		for (int i = 0; i < (int)trays.size(); i++) {
-				cout << "Center: (" << trays[i].pt.x << ", " << trays[i].pt.y << ")\n\n";
+				cout << "Center: (" << trays[i].pt.x - 70.0 << ", " << trays[i].pt.y - 70.0 << ")\n\n";
 
 				cout << "#slots: " << (int)trays[i].slots.size() << "\n";
 				for (int j = 0; j < (int)trays[i].slots.size(); j++) {
-						cout << "(" << trays[i].slots[j].x << ", " << trays[i].slots[j].y << ")\n";
+						cout << "(" << trays[i].slots[j].x - 70.0 << ", " << trays[i].slots[j].y - 70.0 << ")\n";
 				}
 
 				cout << "\n\n";
@@ -591,8 +594,10 @@ int main(int argc, char *argv[]) {
 		for (int i = 0; i < num_flops; i++) {
 				float x, y; cin >> x >> y; 
 
+
 				Point new_pt; 
-				new_pt.x = x, new_pt.y = y;
+				/* shift the x and y coordinate by 70.0 so that we only work with positive integers... this does not impact solution quality */
+				new_pt.x = x + 70.0, new_pt.y = y + 70.0;
 
 				Flop new_flop; 
 				new_flop.pt = new_pt, new_flop.idx = i;
