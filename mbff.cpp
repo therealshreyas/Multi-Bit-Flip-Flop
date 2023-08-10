@@ -582,6 +582,27 @@ void RunILP(vector<Flop> flops, vector<Path> paths, vector<vector<Tray> > all_tr
 
 }
 
+float GetSilh(vector<Flop> flops, vector<Tray> trays, vector<pair<int, int> > clusters) {
+	int num_flops = (int)flops.size(), num_trays = (int)trays.size();
+	
+	float tot = 0;
+	for (int i = 0; i < num_flops; i++) {
+		float min_num = 2000000000;
+		float max_den = GetDist(flops[i].pt, trays[clusters[i].first].slots[clusters[i].second]);
+		for (int j = 0; j < num_trays; j++) if (j != clusters[i].first) {
+			max_den = max(max_den, GetDist(flops[i].pt, trays[j].slots[clusters[i].second]));
+			for (int k = 0; k < (int)trays[j].slots.size(); k++) {
+				min_num = min(min_num, GetDist(flops[i].pt, trays[j].slots[k]));
+			}
+		}
+
+		tot += (min_num / max_den);
+	} 
+
+
+	return tot;
+}
+
 
 int main(int argc, char *argv[]) {
 		float ALPHA = stof(argv[1]), BETA = stof(argv[2]);
@@ -632,7 +653,50 @@ int main(int argc, char *argv[]) {
 		}
 
 
-		omp_set_num_threads(5);
+		omp_set_num_threads(20);
+
+		vector<vector<Tray> > start_trays[6];
+		vector<float> res[6];
+		vector<pair<int, int> > ind;
+
+		for (int i = 1; i < 6; i++) {
+			for (int j = 0; j < 5; j++) ind.push_back(make_pair(i, j));
+			start_trays[i].resize(5);
+			res[i].resize(5);
+		}
+
+
+		/* RUN SILHOUETTE */
+		#pragma omp parallel for
+		for (int i = 0; i < 25; i++) {
+
+			int bit_idx = ind[i].first, tray_idx = ind[i].second;
+
+			int rows = GetRows(BITCNT[bit_idx]), cols = BITCNT[bit_idx] / rows;
+			float AR = (cols * WIDTH * RATIOS[bit_idx]) / (rows * HEIGHT);
+
+			int num_trays = (num_flops + (BITCNT[bit_idx] - 1)) / BITCNT[bit_idx];
+
+			start_trays[bit_idx][tray_idx] = GetStartTrays(flops, num_trays);
+			for (int j = 0; j < num_trays; j++) {
+				start_trays[bit_idx][tray_idx][j].slots = GetSlots(start_trays[bit_idx][tray_idx][j].pt, rows, cols);
+			}
+
+			vector<pair<int, int> > tmp_cluster; 
+			for (int j = 0; j < 15; j++) {
+				tmp_cluster = MinCostFlow(flops, start_trays[bit_idx][tray_idx], BITCNT[bit_idx]);
+				#pragma omp critical 
+				{
+						start_trays[bit_idx][tray_idx] = RunLP(flops, start_trays[bit_idx][tray_idx], tmp_cluster, BITCNT[bit_idx]);
+				}
+				for (int k = 0; k < num_trays; k++) {
+						start_trays[bit_idx][tray_idx][k].slots = GetSlots(start_trays[bit_idx][tray_idx][k].pt, rows, cols);
+				}
+			}
+
+			tmp_cluster = MinCostFlow(flops, start_trays[bit_idx][tray_idx], BITCNT[bit_idx]);
+			res[bit_idx][tray_idx] = GetSilh(flops, start_trays[bit_idx][tray_idx], tmp_cluster);
+		}
 
 		#pragma omp parallel for
 		for (int i = 1; i < 6; i++) {
@@ -641,7 +705,17 @@ int main(int argc, char *argv[]) {
 				float AR = (cols * WIDTH * RATIOS[i]) / (rows * HEIGHT);
 
 				int num_trays = (num_flops + (BITCNT[i] - 1)) / BITCNT[i];
-				trays[i] = GetStartTrays(flops, num_trays);
+
+				int opt_idx = 0;
+				float opt_val = 0;
+				for (int j = 0; j < 5; j++) {
+					if (res[i][j] > opt_val) {
+						opt_val = res[i][j];
+						opt_idx = j;
+					}
+				}
+
+				trays[i] = start_trays[i][opt_idx];
 				for (int j = 0; j < num_trays; j++) trays[i][j].slots = GetSlots(trays[i][j].pt, rows, cols);
 
 				// clusters[i] = (tray that flop i belongs to, slot that flop i belongs to)
@@ -649,7 +723,7 @@ int main(int argc, char *argv[]) {
 						clusters[i] = MinCostFlow(flops, trays[i], BITCNT[i]);
 						#pragma omp critical 
 						{
-							trays[i] = RunLP(flops, trays[i], clusters[i], BITCNT[i]);
+								trays[i] = RunLP(flops, trays[i], clusters[i], BITCNT[i]);
 						}
 						for (int k = 0; k < num_trays; k++) {
 							trays[i][k].slots = GetSlots(trays[i][k].pt, rows, cols);
