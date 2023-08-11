@@ -611,7 +611,7 @@ int main(int argc, char *argv[]) {
 
 
 				Point new_pt; 
-				/* shift the x and y coordinate by 70.0 so that we only work with positive integers... this does not impact solution quality */
+				/* shift the x and y coordinate by 70.0 so that we only work with positive numbers... this does not impact solution quality */
 				new_pt.x = x + 70.0, new_pt.y = y + 70.0;
 
 				Flop new_flop; 
