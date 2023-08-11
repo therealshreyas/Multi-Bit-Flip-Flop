@@ -24,7 +24,7 @@ Sample input file (test.in):
 
 
 
-#### ./mbff $a$ $b$ test.in test.out   
+#### ./mbff $a$ $b$ test.in > test.out   
 - Runs the MBFF clustering algorithm with $ALPHA = a$, $BETA = b$, and the input "test.in".     
 - Outputs D, Z, W, and #trays used of each size after the algorithm is finished to "test.out".    
 
