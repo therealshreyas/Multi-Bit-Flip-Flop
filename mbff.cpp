@@ -599,15 +599,15 @@ float GetSilh(vector<Flop> flops, vector<Tray> trays, vector<pair<int, int> > cl
 int main(int argc, char *argv[]) {
 		setIO(argv[3]);
 
-		//int num_flops, num_paths;
-		//cin >> num_flops >> num_paths;
-		int num_flops = stoi(argv[1]), num_paths = stoi(argv[2]);
+		int num_flops, num_paths;
+		cin >> num_flops >> num_paths;
+		//int num_flops = stoi(argv[1]), num_paths = stoi(argv[2]);
 
-		float ALPHA = 20.0, BETA = 1.00;
+		float ALPHA = stof(argv[1]), BETA = stof(argv[2]);
 
 		vector<Flop> flops(num_flops);
 		for (int i = 0; i < num_flops; i++) {
-				float asdf, x, y; cin >> asdf >> x >> y; 
+				float x, y; cin >> x >> y; 
 
 
 				Point new_pt; 
@@ -621,7 +621,7 @@ int main(int argc, char *argv[]) {
 
 		vector<Path> paths(num_paths);
 		for (int i = 0; i < num_paths; i++) {
-				int a, b, idx; cin >> a >> b >> idx;
+				int a, b; cin >> a >> b;
 
 				Path new_path;
 				new_path.a = a, new_path.b = b;
