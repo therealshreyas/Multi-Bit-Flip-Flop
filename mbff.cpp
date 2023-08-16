@@ -22,16 +22,14 @@ using Graph = ListDigraph;
 using Node = ListDigraph::Node;
 using Edge = ListDigraph::Arc;
 
-
+auto seed = chrono::high_resolution_clock::now().time_since_epoch().count();
+std::mt19937 mt(seed);
 
 
 /* hard coded values for height, width, power consumption, etc. */
 float WIDTH = 2.448, HEIGHT = 1.2;
 float RATIOS[6] = {1, 0.875, 0.854, 0.854, 0.844, 0.844}, POWER[6] = {1, 0.875, 0.854, 0.854, 0.844, 0.844};
 int BITCNT[6] = {1, 4, 8, 16, 32, 64};
-
-float PREV_D[6] = {0, 0, 0, 0, 0, 0}; 
-bool RUN_LP[6] = {1, 1, 1, 1, 1, 1};
 
 
 struct Point {
@@ -62,7 +60,6 @@ struct Path {
 void setIO(string fin) {
 	ios_base::sync_with_stdio(0); cin.tie(0);
 	freopen(fin.c_str(),"r",stdin);
-	//freopen(fout.c_str(),"w",stdout);
 }
 
 
@@ -102,12 +99,8 @@ vector<Point> GetSlots(Point tray, int rows, int cols) {
 
 
 Flop GetNewFlop(vector<Flop> prob_dist, float tot_dist) {
-		auto seed = chrono::high_resolution_clock::now().time_since_epoch().count();
-		std::mt19937 mt(seed);
-		int rnd = (mt() % 10001), cum_sum = 0;
-		float rand_num = (float)rnd / 100.0;
-
-		Flop new_flop;
+		float rand_num = (float)(mt() % 101), cum_sum = 0;
+    Flop new_flop;
 		for (int i = 0; i < (int)prob_dist.size(); i++) {
 				cum_sum += prob_dist[i].prob;
 				new_flop = prob_dist[i];
@@ -117,31 +110,33 @@ Flop GetNewFlop(vector<Flop> prob_dist, float tot_dist) {
 		return new_flop;
 }
 
-vector<Tray> GetStartTrays(vector<Flop> &flops, int num_trays, float AR) {
+vector<Tray> GetStartTrays(vector<Flop> &flops, int num_trays) {
 
 		int num_flops = (int)flops.size();
 
-		auto seed = chrono::high_resolution_clock::now().time_since_epoch().count();
-		std::mt19937 mt(seed);
+		/* pick a random flop */
 		int rand_idx = mt() % (num_flops);
 		Tray tray_zero; tray_zero.pt = flops[rand_idx].pt;
 
 		set<int> used_flops; used_flops.insert(rand_idx);
 		vector<Tray> trays; trays.push_back(tray_zero);
+
 	
 		float tot_dist = 0;
 		for (int i = 0; i < num_flops; i++) {
-				float contr = GetDist(flops[i].pt, tray_zero.pt) / AR;
+				float contr = GetDist(flops[i].pt, tray_zero.pt);
 				flops[i].prob = contr, tot_dist += contr;
 		}
 
 		while ((int)trays.size() < num_trays) {
-
+        
 				vector<Flop> prob_dist;
 				for (int i = 0; i < num_flops; i++) if (!used_flops.count(i)) {
 						prob_dist.push_back(flops[i]);
 				}
+        
 				sort(begin(prob_dist), end(prob_dist));
+         
 
 				Flop new_flop = GetNewFlop(prob_dist, tot_dist);
 				used_flops.insert(new_flop.idx);
@@ -150,7 +145,7 @@ vector<Tray> GetStartTrays(vector<Flop> &flops, int num_trays, float AR) {
 				trays.push_back(new_tray);
 
 				for (int i = 0; i < num_flops; i++) {
-						float new_contr = GetDist(flops[i].pt, new_tray.pt) / AR;
+						float new_contr = GetDist(flops[i].pt, new_tray.pt);
 						flops[i].prob += new_contr, tot_dist += new_contr;
 				}
 
@@ -158,7 +153,6 @@ vector<Tray> GetStartTrays(vector<Flop> &flops, int num_trays, float AR) {
 
 		return trays;
 }
-
 
 void PrintTrays(vector<Tray> trays) {
 
@@ -220,7 +214,7 @@ vector<pair<int, int> > MinCostFlow(vector<Flop> flops, vector<Tray> &trays, int
 								Edge flop_to_slot = graph.addArc(nodes[k], slot_node);
 								edges.push_back(flop_to_slot);
 
-								int edge_cost = 100 * (int)GetDist(flops[k].pt, tray_slots[j]);
+								int edge_cost = (100 * GetDist(flops[k].pt, tray_slots[j]));
 								cur_costs.push_back(edge_cost), cur_caps.push_back(1);
 						}
 
@@ -255,12 +249,9 @@ vector<pair<int, int> > MinCostFlow(vector<Flop> flops, vector<Tray> &trays, int
 
 
 		vector<pair<int, int> > clusters(num_flops);
-		for (int i = 0; i < num_flops; i++) {
-			clusters[i] = make_pair(-1, -1);
-		}
 		for (Graph::ArcIt itr(graph); itr != INVALID; ++itr) {
 				int u = labels[graph.source(itr)], v = labels[graph.target(itr)];
-				if (flow[itr] == 1 && u < num_flops && v >= num_flops) {
+				if (flow[itr] != 0 && u < num_flops && v >= num_flops) {
 						v -= num_flops; 
 						int tray_idx = slot_to_tray[v].first, slot_idx = slot_to_tray[v].second;
 						clusters[u] = make_pair(tray_idx, slot_idx), trays[tray_idx].cand[slot_idx] = u;
@@ -270,7 +261,7 @@ vector<pair<int, int> > MinCostFlow(vector<Flop> flops, vector<Tray> &trays, int
 		return clusters;
 }
 
-vector<Tray> RunLP(vector<Flop> flops, vector<Tray> trays, vector<pair<int, int> > clusters, int sz) {
+float  RunLP(vector<Flop> flops, vector<Tray> &trays, vector<pair<int, int> > clusters, int sz) {
 		int num_flops = (int)flops.size(), num_trays = (int)trays.size();
 
 		IloEnv my_env;
@@ -291,13 +282,43 @@ vector<Tray> RunLP(vector<Flop> flops, vector<Tray> trays, vector<pair<int, int>
 				d_y[i] = IloNumVar(my_env, 0, 1000000, ILOFLOAT);
 
 				int tray_idx = clusters[i].first, slot_idx = clusters[i].second;
-				if (tray_idx == -1) continue;
 
 				Point flop = flops[i].pt;
 				Point tray = trays[tray_idx].pt;
-				Point slot = trays[tray_idx].slots[slot_idx];
+				Point slot = trays[tray_idx].slots[slot_idx]; 
+
+				/* 
+
+				trying to minimize the sum of (|slot.x - flop.x| + |slot.y - flop.y|) over all flops
+				for this LP, each flop uses the same slot shift as before:
+					the new slot.x = new tray.x + shift in x for previous slot position
+					the new slot.y = new tray.y + shift in y for previous slot position
+
+				we already have the shifts (can derive from previous slot locations)
+
+				*/
 
 				float shift_x = slot.x - tray.x, shift_y = slot.y - tray.y;
+
+
+
+				/* 
+			
+				let d_x + d_y = d
+
+				|tray.x + shift_x - x| = d_x
+				==> 
+				|tray.x + shift_x - x| <= d_x
+					
+				so ...
+
+				tray.x + shift_x - x <= d_x ==> shift_x - x <= d_x - tray.x
+				and
+				-tray.x - shift_x + x <= d_x ==> x - shift_x <= d_x + tray.x
+
+				repeat for _y ! 
+
+				*/
 
 
 				my_model.add(shift_x - flop.x <= d_x[i] - tray_x[tray_idx]);
@@ -318,36 +339,24 @@ vector<Tray> RunLP(vector<Flop> flops, vector<Tray> trays, vector<pair<int, int>
 
 		IloCplex my_cplex(my_env);
 		my_cplex.setOut(my_env.getNullStream());
-		my_cplex.setParam(IloCplex::Threads, 1);
-		my_cplex.setParam(IloCplex::EpGap, 0.01);
+		my_cplex.setParam(IloCplex::Threads, 4);
+		my_cplex.setParam(IloCplex::EpGap, 0.05);
 		my_cplex.setParam(IloCplex::TiLim, 18000);
 		my_cplex.extract(my_model);
 		my_cplex.solve();
 		my_cplex.getStatus();
 
-		float tot_d = 0;
-		for (int i = 0; i < num_flops; i++) {
-			tot_d += (my_cplex.getValue(d_x[i]) + my_cplex.getValue(d_y[i]));
-		}
-
-		int bit_idx = 0;
-		for (int i = 1; i < 6; i++) {
-			if (BITCNT[i] == sz) bit_idx = i;
-		}
-
-
-		RUN_LP[bit_idx] = (abs(tot_d - PREV_D[bit_idx]) > 1 ? 1 : 0);
-		PREV_D[bit_idx] = tot_d;
-
-		vector<Tray> new_trays;
+  
+    float tot_d = 0;
 		for (int i = 0; i < num_trays; i++) {
 				Tray new_tray;
 				new_tray.pt.x = my_cplex.getValue(tray_x[i]);
 				new_tray.pt.y = my_cplex.getValue(tray_y[i]);
-				new_trays.push_back(new_tray);
-		}
-		
-		return new_trays;
+	      tot_d += GetDist(trays[i].pt, new_tray.pt);
+        trays[i] = new_tray;           
+	  }
+  
+		return tot_d;
 }
 
 void RunILP(vector<Flop> flops, vector<Path> paths, vector<vector<Tray> > all_trays, float ALPHA, float BETA) {
@@ -512,8 +521,8 @@ void RunILP(vector<Flop> flops, vector<Path> paths, vector<vector<Tray> > all_tr
 				for (int j = 0; j < 6; j++) {
 						if (BITCNT[j] == (int)trays[i].slots.size()) bit_idx = j;
 				}
-				if (BITCNT[bit_idx] == 1) w[i] = ALPHA;
-				else w[i] = ALPHA * ((float)BITCNT[bit_idx]) * (POWER[bit_idx] - BITCNT[bit_idx] * 0.0015);
+				if (BITCNT[bit_idx] == 1) w[i] = 1.00;
+				else w[i] = ((float)BITCNT[bit_idx]) * (POWER[bit_idx] - BITCNT[bit_idx] * 0.0015);
 		}
 
 		IloExpr W(my_env);
@@ -524,7 +533,7 @@ void RunILP(vector<Flop> flops, vector<Path> paths, vector<vector<Tray> > all_tr
 
 
 		IloExpr obj(my_env);
-		obj = D + W +Z;
+		obj = D + ALPHA * W + BETA * Z;
 		my_model.add(IloMinimize(my_env, obj));
 
 		IloCplex my_cplex(my_env);
@@ -541,17 +550,15 @@ void RunILP(vector<Flop> flops, vector<Path> paths, vector<vector<Tray> > all_tr
 		cout << "Total: " << my_cplex.getObjValue() << "\n";
 		cout << "D: " << my_cplex.getValue(D) << "\n";
 		cout << "Z: " << my_cplex.getValue(Z) << "\n";
-		cout << "W: " << my_cplex.getValue(W)/ALPHA << "\n";
+		cout << "W: " << my_cplex.getValue(W) << "\n";
 
 		
-		int mapped = 0;
 		set<int> tray_idx;
 		for (int i = 0; i < num_flops; i++) {
 				for (int j = 0; j < num_trays; j++) {
 						for (int k = 0; k < (int)trays[j].slots.size(); k++) if (trays[j].cand[k] == i) {
 								if (my_cplex.getValue(B[i][j][k]) == 1) {
 										tray_idx.insert(j);
-										if ((int)trays[j].slots.size() > 1) mapped++;
 								} 
 						}
 				}
@@ -567,7 +574,6 @@ void RunILP(vector<Flop> flops, vector<Path> paths, vector<vector<Tray> > all_tr
 				cout << "Tray size = " << x.first << ": " << x.second << "\n";
 		}
 
-		cout << (float)mapped / num_flops << " mapped\n";
 
 		D.clear(), Z.clear(), W.clear();
 
@@ -578,40 +584,39 @@ float GetSilh(vector<Flop> flops, vector<Tray> trays, vector<pair<int, int> > cl
 	
 	float tot = 0;
 	for (int i = 0; i < num_flops; i++) {
-		int tray_idx = clusters[i].first, slot_idx = clusters[i].second; 
-		float d_1 = GetDist(flops[i].pt, trays[tray_idx].slots[slot_idx]), d_2 = 2000000000;
-		for (int j = 0; j < num_trays; j++) if (j != tray_idx) {
+		float min_num = 2000000000;
+		float max_den = GetDist(flops[i].pt, trays[clusters[i].first].slots[clusters[i].second]);
+		for (int j = 0; j < num_trays; j++) if (j != clusters[i].first) {
+			max_den = max(max_den, GetDist(flops[i].pt, trays[j].slots[clusters[i].second]));
 			for (int k = 0; k < (int)trays[j].slots.size(); k++) {
-				d_2 = min(d_2, GetDist(flops[i].pt, trays[j].slots[k]));
+				min_num = min(min_num, GetDist(flops[i].pt, trays[j].slots[k]));
 			}
 		}
 
+		tot += (min_num / max_den);
+	} 
 
-		if (d_2 == 0 || d_1 == 0) tot += 1;
-		else tot += ((d_2 - d_1) / (max(d_1, d_2)));
 
-	}
-
-	return (tot/num_flops);
+	return tot;
 }
 
 
 int main(int argc, char *argv[]) {
-		setIO(argv[3]);
-
-		int num_flops, num_paths;
-		cin >> num_flops >> num_paths;
-		//int num_flops = stoi(argv[1]), num_paths = stoi(argv[2]);
-
 		float ALPHA = stof(argv[1]), BETA = stof(argv[2]);
+		ifstream fin(argv[3]);
+    //setIO(argv[3]);
+    //cout << "reading input\n";
+		int num_flops, num_paths;
+		fin >> num_flops >> num_paths;
 
 		vector<Flop> flops(num_flops);
 		for (int i = 0; i < num_flops; i++) {
-				float x, y; cin >> x >> y; 
+        int idx; fin >> idx;
+				float x, y; fin >> x >> y; 
 
 
 				Point new_pt; 
-				/* shift the x and y coordinate by 70.0 so that we only work with positive numbers... this does not impact solution quality */
+				/* shift the x and y coordinate by 70.0 so that we only work with positive integers... this does not impact solution quality */
 				new_pt.x = x + 70.0, new_pt.y = y + 70.0;
 
 				Flop new_flop; 
@@ -621,13 +626,14 @@ int main(int argc, char *argv[]) {
 
 		vector<Path> paths(num_paths);
 		for (int i = 0; i < num_paths; i++) {
-				int a, b; cin >> a >> b;
+				int a, b, idx; fin >> a >> b >> idx;
 
 				Path new_path;
 				new_path.a = a, new_path.b = b;
 				paths[i] = new_path;
 		}
-
+    //cout << "read input\n";
+    fin.close();
 
 		time_t start, end; time(&start);
 
@@ -647,7 +653,6 @@ int main(int argc, char *argv[]) {
 		}
 
 
-		omp_set_num_threads(20);
 
 		vector<vector<Tray> > start_trays[6];
 		vector<float> res[6];
@@ -659,6 +664,9 @@ int main(int argc, char *argv[]) {
 			res[i].resize(5);
 		}
 
+    //cout << "Starting stuff\n";
+
+    omp_set_num_threads(5);
 
 		/* RUN SILHOUETTE */
 		#pragma omp parallel for
@@ -671,75 +679,79 @@ int main(int argc, char *argv[]) {
 
 			int num_trays = (num_flops + (BITCNT[bit_idx] - 1)) / BITCNT[bit_idx];
 
-			start_trays[bit_idx][tray_idx] = GetStartTrays(flops, num_trays, AR);
-
-
+			start_trays[bit_idx][tray_idx] = GetStartTrays(flops, num_trays);
 			for (int j = 0; j < num_trays; j++) {
 				start_trays[bit_idx][tray_idx][j].slots = GetSlots(start_trays[bit_idx][tray_idx][j].pt, rows, cols);
 			}
 
-			vector<pair<int, int> > tmp_cluster(num_flops);
-			
-			for (int j = 0; j < 15; j++) {
-				tmp_cluster = MinCostFlow(flops, start_trays[bit_idx][tray_idx], BITCNT[bit_idx]);
-				#pragma omp critical 
-				{
-					start_trays[bit_idx][tray_idx] = RunLP(flops, start_trays[bit_idx][tray_idx], tmp_cluster, BITCNT[bit_idx]);
+      float delta = 0;
+			vector<pair<int, int> > tmp_cluster; 
+      //cout << "Starting with index " << i << "\n";
+			for (int j = 0; j < 8; j++) {
 				
-					for (int k = 0; k < num_trays; k++) {
-							start_trays[bit_idx][tray_idx][k].slots = GetSlots(start_trays[bit_idx][tray_idx][k].pt, rows, cols);
-					}
+        tmp_cluster = MinCostFlow(flops, start_trays[bit_idx][tray_idx], BITCNT[bit_idx]);
+				//#pragma omp critical 
+        //{
+          delta = RunLP(flops, start_trays[bit_idx][tray_idx], tmp_cluster, BITCNT[bit_idx]);
+			  //}
+				for (int k = 0; k < num_trays; k++) {
+						start_trays[bit_idx][tray_idx][k].slots = GetSlots(start_trays[bit_idx][tray_idx][k].pt, rows, cols);
 				}
-			}
-		
 
+        if (delta < 0.5) break;
+      
+			}
+      //cout << "Done with index " << i << "\n";
 			tmp_cluster = MinCostFlow(flops, start_trays[bit_idx][tray_idx], BITCNT[bit_idx]);
 			res[bit_idx][tray_idx] = GetSilh(flops, start_trays[bit_idx][tray_idx], tmp_cluster);
 		}
 
 
+    //cout << "Got Trays\n";
+
+
+    
 		#pragma omp parallel for
 		for (int i = 1; i < 6; i++) {
-				RUN_LP[i] = 1, PREV_D[i] = 0;
+
 				int rows = GetRows(BITCNT[i]), cols = BITCNT[i] / rows;
+				float AR = (cols * WIDTH * RATIOS[i]) / (rows * HEIGHT);
 
 				int num_trays = (num_flops + (BITCNT[i] - 1)) / BITCNT[i];
 
 				int opt_idx = 0;
-				float opt_val = res[i][0];
-				for (int j = 1; j < 5; j++) {
+				float opt_val = 0;
+				for (int j = 0; j < 5; j++) {
 					if (res[i][j] > opt_val) {
 						opt_val = res[i][j];
 						opt_idx = j;
 					}
 				}
 
-				
-
 				trays[i] = start_trays[i][opt_idx];
 				for (int j = 0; j < num_trays; j++) trays[i][j].slots = GetSlots(trays[i][j].pt, rows, cols);
 
 				// clusters[i] = (tray that flop i belongs to, slot that flop i belongs to)
-				for (int j = 0; j < 35; j++) if (RUN_LP[i]) {
-						clusters[i] = MinCostFlow(flops, trays[i], BITCNT[i]);
-						#pragma omp critical 
-						{
-								trays[i] = RunLP(flops, trays[i], clusters[i], BITCNT[i]);
-						
-								for (int k = 0; k < num_trays; k++) {
-									trays[i][k].slots = GetSlots(trays[i][k].pt, rows, cols);
-								}
-
+				float delta = 0;
+				for (int j = 0; j < 35; j++) {
+            clusters[i] = MinCostFlow(flops, trays[i], BITCNT[i]);
+            //#pragma omp critical 
+            //{
+					  	delta = RunLP(flops, trays[i], clusters[i], BITCNT[i]);
+					  //}
+						for (int k = 0; k < num_trays; k++) {
+							trays[i][k].slots = GetSlots(trays[i][k].pt, rows, cols);
 						}
+
+            if (delta < 0.5) break;
 				}
+
 				clusters[i] = MinCostFlow(flops, trays[i], BITCNT[i]);
 
 				for (int j = 0; j < num_trays; j++) {
 					trays[i][j].slots = GetSlots(trays[i][j].pt, rows, cols);
 				}
-
 		}
-
 
 
         clock_t ilp_start, ilp_end; ilp_start = clock();
@@ -753,13 +765,3 @@ int main(int argc, char *argv[]) {
 		time(&end);
 		cout << "Total time: " << fixed <<  double(end - start) << setprecision(5) << " seconds\n";
 }
-
-
-
-
-
-
-
-
-
-
