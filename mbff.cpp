@@ -481,7 +481,7 @@ void MBFF::RunILP(const std::vector<Flop> &flops,
         float sum_tray_cost = 0;
         for (int i = 0; i < num_trays; i++) {
             if (operations_research::sat::SolutionIntegerValue(response,
-                tray_used[i]) > 0.5) {
+                tray_used[i]) == 1) {
                 sum_tray_cost += tray_cost[i];
                 //tray_idx.insert(i);
             }
@@ -494,7 +494,7 @@ void MBFF::RunILP(const std::vector<Flop> &flops,
         for (int i = 0; i < num_flops; i++) {
             for (int j = 0; j < static_cast<int>(cand_tray[i].size()); j++) {
                 if (operations_research::sat::SolutionIntegerValue(
-                    response, mapped[i][j]) > 0.5) {
+                    response, mapped[i][j]) == 1) {
                         tray_idx.insert(cand_tray[i][j]);
                         mapped_cnt++;
                 }
