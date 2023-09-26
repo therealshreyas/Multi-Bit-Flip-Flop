@@ -33,13 +33,13 @@
 #pragma once
 
 #include <vector>
-
+#include <array>
 
 namespace gpl {
 
 struct Point {
-    float x = 0;
-    float y = 0;
+    float x;
+    float y;
 };
 
 struct Tray {
@@ -50,15 +50,15 @@ struct Tray {
 
 struct Flop {
     Point pt;
-    int idx = 0;
-    float prob = 0;
+    int idx;
+    float prob;
 
     bool operator<(Flop &a) { return prob < a.prob; }
 };
 
 struct Path {
-    int a = 0;
-    int b = 0;
+    int start_point;
+    int end_point;
 };
 
 class MBFF {
@@ -110,8 +110,8 @@ class MBFF {
                 const std::vector<std::vector<Tray> > &all_trays, float alpha,
                 float beta);
 
-    std::vector<Flop> all_flops;
-    std::vector<Path> all_paths;
+    std::vector<Flop> flops_;
+    std::vector<Path> paths_;
     int num_threads;
 };
 }
